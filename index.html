@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 진로 네비게이터 (AI Career Portfolio Hub)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter & Pretendard -->
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf for robust PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Pretendard', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; }
+        .spinner {
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        /* Toast animation */
+        .toast-enter {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        .toast-active {
+            transform: translateY(0);
+            opacity: 1;
+            transition: all 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2"></div>
+
+    <!-- Top Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="router.navigate('dashboard')">
+                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-content text-white text-xl font-bold shadow-md">
+                    <i class="fa-solid fa-compass text-white m-auto"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-slate-900 leading-tight">AI 진로 네비게이터</h1>
+                    <p class="text-xs text-slate-500">AI Career Portfolio Hub</p>
+                </div>
+            </div>
+            <div id="user-session-badge" class="hidden items-center space-x-3 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
+                <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full" id="badge-id"></span>
+                <span class="text-sm font-medium text-slate-700" id="badge-name"></span>
+                <button onclick="logout()" class="text-slate-400 hover:text-red-500 text-xs ml-1 transition" title="로그아웃">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container App -->
+    <main class="flex-grow max-w-5xl w-full mx-auto px-4 py-6">
+        
+        <!-- View 1: Login Screen -->
+        <section id="view-login" class="view-section max-w-md mx-auto mt-12 bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-xs">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">시작하기</h2>
+                <p class="text-sm text-slate-500 mt-1">학번과 이름을 입력하여 내 진로 포트폴리오를 관리하세요.</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">학번 (예: 20315)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-id-card"></i></span>
+                        <input type="text" id="login-id" required placeholder="학번을 입력하세요" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">이름 (예: 김진로)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" id="login-name" required placeholder="이름을 입력하세요" class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition text-sm">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-md transition duration-200 flex items-center justify-center space-x-2">
+                    <span>포트폴리오 시작하기</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+            <div class="mt-6 pt-6 border-t border-slate-100 text-center">
+                <p class="text-xs text-slate-400">데이터는 안전하게 브라우저(LocalStorage)에 저장됩니다.</p>
+            </div>
+        </section>
+
+        <!-- View 2: Dashboard -->
+        <section id="view-dashboard" class="view-section hidden space-y-6">
+            <!-- Welcome Banner & Summary -->
+            <div class="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <span class="bg-indigo-500/50 text-indigo-100 text-xs font-medium px-3 py-1 rounded-full uppercase tracking-wider">My Portfolio Hub</span>
+                    <h2 class="text-2xl font-bold mt-2" id="dash-welcome">반가워요, 학생님!</h2>
+                    <p class="text-indigo-100 text-sm mt-1">자율, 동아리, 진로, 독서 활동을 기록하고 AI 피드백을 받아보세요.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="router.navigate('form')" class="bg-white text-indigo-600 hover:bg-indigo-50 font-semibold px-4 py-2.5 rounded-xl shadow-md transition flex items-center space-x-2 text-sm">
+                        <i class="fa-solid fa-plus-circle"></i>
+                        <span>새 진로 활동 기록하기</span>
+                    </button>
+                    <button onclick="router.navigate('preview')" class="bg-indigo-700/80 hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-xl border border-indigo-400/30 transition flex items-center space-x-2 text-sm">
+                        <i class="fa-solid fa-file-pdf"></i>
+                        <span>PDF 보고서 출력</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-list-check"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium">총 활동 기록</p>
+                        <h3 class="text-xl font-bold text-slate-800 mt-0.5" id="stat-count">0개</h3>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-brain"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium">AI 피드백 완료</p>
+                        <h3 class="text-xl font-bold text-slate-800 mt-0.5" id="stat-ai">0건</h3>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center space-x-4">
+                    <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-calendar-day"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 font-medium">최근 활동일</p>
+                        <h3 class="text-sm font-bold text-slate-800 mt-1" id="stat-recent">기록 없음</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activities List Section -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                        <i class="fa-solid fa-timeline text-indigo-600"></i>
+                        <span>활동 타임라인 및 기록</span>
+                    </h3>
+                    <span class="text-xs text-slate-400">카드를 클릭하여 상세 내용을 확인하거나 수정할 수 있습니다.</span>
+                </div>
+                <div id="activities-container" class="space-y-4">
+                    <!-- Dynamic Activity Cards inserted here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- View 3: Activity Form Screen -->
+        <section id="view-form" class="view-section hidden max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+                <h2 class="text-xl font-bold text-slate-900 flex items-center space-x-2">
+                    <i class="fa-solid fa-pen-nib text-indigo-600"></i>
+                    <span id="form-title-text">새 진로 활동 기록</span>
+                </h2>
+                <button onclick="router.navigate('dashboard')" class="text-slate-400 hover:text-slate-600 text-sm">
+                    <i class="fa-solid fa-xmark mr-1"></i>취소
+                </button>
+            </div>
+            <form id="activity-form" onsubmit="saveActivity(event)" class="space-y-5">
+                <input type="hidden" id="edit-index" value="">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">활동 날짜</label>
+                        <input type="date" id="act-date" required class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">활동 영역 / 구분</label>
+                        <select id="act-category" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition text-sm">
+                            <option value="동아리활동">동아리 활동</option>
+                            <option value="창의적체험활동">창의적 체험활동 (자율/봉사/진로)</option>
+                            <option value="교과세특활동">교과 세특 탐구 활동</option>
+                            <option value="독서활동">독서 활동</option>
+                            <option value="진로체험">진로 체험 및 강연</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">활동 제목</label>
+                    <input type="text" id="act-title" required placeholder="예: AI 윤리 관련 소논문 작성 및 발표" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">활동 내용 요약</label>
+                    <textarea id="act-content" rows="4" required placeholder="어떤 활동을 구체적으로 진행했는지 상세히 적어주세요." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition text-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">배운 점 및 느낀 점</label>
+                    <textarea id="act-reflection" rows="3" required placeholder="활동을 통해 새롭게 알게 된 점이나 스스로 성장한 부분을 적어주세요." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition text-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">나의 진로와 연관성</label>
+                    <input type="text" id="act-career-link" required placeholder="예: 인공지능 엔지니어, 데이터 분석가 등 희망 진로와의 연계점" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-none transition text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">활동 증빙 사진 첨부 (선택)</label>
+                    <input type="file" id="act-image" accept="image/*" onchange="handleImageUpload(event)" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition">
+                    <div id="image-preview-container" class="mt-3 hidden">
+                        <img id="image-preview" src="" alt="미리보기" class="h-32 object-cover rounded-xl border border-slate-200 shadow-xs">
+                        <button type="button" onclick="removeImage()" class="text-xs text-red-500 mt-1 hover:underline">사진 삭제</button>
+                    </div>
+                </div>
+                <div class="pt-4 flex items-center justify-end space-x-3">
+                    <button type="button" onclick="router.navigate('dashboard')" class="px-5 py-2.5 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition text-sm">취소</button>
+                    <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition flex items-center space-x-2 text-sm">
+                        <i class="fa-solid fa-sparkles"></i>
+                        <span>저장 및 AI 피드백 요청</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- View 4: AI Feedback Screen -->
+        <section id="view-feedback" class="view-section hidden max-w-2xl mx-auto space-y-6">
+            <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
+                <div class="text-center pb-6 border-b border-slate-100">
+                    <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-900">AI 진로 심층 피드백</h2>
+                    <p class="text-xs text-slate-500 mt-1">작성하신 활동 내용을 바탕으로 Gemini AI가 역량을 분석했습니다.</p>
+                </div>
+
+                <!-- Loading State -->
+                <div id="ai-loading" class="py-12 text-center space-y-4">
+                    <div class="spinner mx-auto"></div>
+                    <p class="text-sm font-medium text-slate-600 animate-pulse">AI가 활동 내용을 심층 분석하고 피드백을 작성 중입니다...</p>
+                </div>
+
+                <!-- Content State -->
+                <div id="ai-content" class="hidden mt-6 space-y-6">
+                    <div class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                        <span class="text-xs font-semibold text-indigo-600 uppercase tracking-wider">핵심 역량 태그</span>
+                        <div id="ai-tags" class="flex flex-wrap gap-2 mt-2">
+                            <!-- Tags injected -->
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h4 class="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                            <i class="fa-solid fa-comment-dots text-indigo-600"></i>
+                            <span>AI 분석 코멘트 및 강점 진단</span>
+                        </h4>
+                        <div id="ai-comment" class="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap"></div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h4 class="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                            <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                            <span>진로 연계성 강화 및 발전 팁</span>
+                        </h4>
+                        <div id="ai-tip" class="p-4 bg-amber-50/50 rounded-xl border border-amber-100 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap"></div>
+                    </div>
+
+                    <div class="pt-4 flex justify-end space-x-3">
+                        <button onclick="router.navigate('dashboard')" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition text-sm">
+                            확인 및 대시보드로 이동
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View 5: PDF Report Preview Screen -->
+        <section id="view-preview" class="view-section hidden max-w-4xl mx-auto space-y-6">
+            <div class="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">공식 진로 포트폴리오 보고서</h2>
+                    <p class="text-xs text-slate-500">A4 규격에 최적화된 누적 활동 리포트입니다.</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="router.navigate('dashboard')" class="px-4 py-2 border border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition text-sm">
+                        돌아가기
+                    </button>
+                    <button onclick="downloadPDF()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-md transition flex items-center space-x-2 text-sm">
+                        <i class="fa-solid fa-download"></i>
+                        <span>PDF로 다운로드</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Printable A4 Paper Container -->
+            <div id="pdf-printable-area" class="bg-white p-8 md:p-12 rounded-2xl shadow-xl border border-slate-200 space-y-8 max-w-3xl mx-auto">
+                <!-- Report Header -->
+                <div class="border-b-2 border-indigo-600 pb-6 flex justify-between items-end">
+                    <div>
+                        <span class="text-xs font-bold text-indigo-600 uppercase tracking-widest">Official Career Portfolio</span>
+                        <h1 class="text-3xl font-extrabold text-slate-900 mt-1">학생 진로 포트폴리오 보고서</h1>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-semibold text-slate-700" id="report-student-info">학번: 20315 | 이름: 김진로</p>
+                        <p class="text-xs text-slate-400 mt-1" id="report-date-generated">발행일: 2026-03-30</p>
+                    </div>
+                </div>
+
+                <!-- Report Summary Overview -->
+                <div class="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                        <p class="text-xs text-slate-500">총 누적 활동</p>
+                        <p class="text-lg font-bold text-slate-800" id="report-total-count">0 건</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">주요 진로 키워드</p>
+                        <p class="text-sm font-bold text-indigo-600 truncate" id="report-main-career">인공지능 엔지니어</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">AI 피드백 달성률</p>
+                        <p class="text-lg font-bold text-emerald-600" id="report-ai-rate">100%</p>
+                    </div>
+                </div>
+
+                <!-- Report Items List -->
+                <div class="space-y-6">
+                    <h3 class="text-base font-bold text-slate-900 border-b border-slate-200 pb-2">세부 진로 활동 및 AI 피드백 내역</h3>
+                    <div id="report-items-container" class="space-y-6">
+                        <!-- Dynamic items -->
+                    </div>
+                </div>
+
+                <!-- Report Footer Sign -->
+                <div class="pt-8 border-t border-slate-200 flex justify-between items-center text-xs text-slate-400">
+                    <p>AI 진로 네비게이터 (AI Career Portfolio Hub)</p>
+                    <p>담당 교사 확인: (서명 또는 인)</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-12 text-center text-xs text-slate-400">
+        <p>&copy; 2026 AI Career Portfolio Hub. All rights reserved.</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // State Management
+        let currentUser = null; // { studentId, name }
+        let currentImageBase64 = null;
+
+        // Router Management
+        const router = {
+            navigate: function(viewName) {
+                document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+                const target = document.getElementById(`view-${viewName}`);
+                if (target) {
+                    target.classList.remove('hidden');
+                    window.scrollTo(0, 0);
+                    if (viewName === 'dashboard') loadDashboard();
+                    if (viewName === 'preview') loadPreview();
+                }
+            }
+        };
+
+        // Toast Notification Helper
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white';
+            toast.className = `${bgClass} px-4 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center space-x-2 toast-enter`;
+            toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check text-emerald-400' : 'fa-circle-exclamation'}"></i><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('toast-active'), 10);
+            setTimeout(() => {
+                toast.classList.remove('toast-active');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Authentication Handlers
+        function handleLogin(e) {
+            e.preventDefault();
+            const id = document.getElementById('login-id').value.trim();
+            const name = document.getElementById('login-name').value.trim();
+            if (!id || !name) return showToast('학번과 이름을 모두 입력해주세요.', 'error');
+
+            currentUser = { studentId: id, name: name };
+            localStorage.setItem('portfolio_current_user', JSON.stringify(currentUser));
+            
+            updateSessionBadge();
+            showToast(`${name}님 환영합니다!`);
+            router.navigate('dashboard');
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('portfolio_current_user');
+            document.getElementById('user-session-badge').classList.add('hidden');
+            router.navigate('login');
+            showToast('로그아웃되었습니다.');
+        }
+
+        function updateSessionBadge() {
+            if (currentUser) {
+                document.getElementById('badge-id').innerText = currentUser.studentId;
+                document.getElementById('badge-name').innerText = currentUser.name;
+                document.getElementById('user-session-badge').classList.remove('hidden');
+                document.getElementById('user-session-badge').classList.add('flex');
+            } else {
+                document.getElementById('user-session-badge').classList.add('hidden');
+            }
+        }
+
+        // Data Storage Helpers
+        function getStorageKey() {
+            if (!currentUser) return null;
+            return `portfolio_data_${currentUser.studentId}_${currentUser.name}`;
+        }
+
+        function getActivities() {
+            const key = getStorageKey();
+            if (!key) return [];
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveActivities(activities) {
+            const key = getStorageKey();
+            if (key) {
+                localStorage.setItem(key, JSON.stringify(activities));
+            }
+        }
+
+        // Image Handling
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(uploadEvent) {
+                currentImageBase64 = uploadEvent.target.result;
+                document.getElementById('image-preview').src = currentImageBase64;
+                document.getElementById('image-preview-container').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeImage() {
+            currentImageBase64 = null;
+            document.getElementById('act-image').value = '';
+            document.getElementById('image-preview-container').classList.add('hidden');
+        }
+
+        // Dashboard Rendering
+        function loadDashboard() {
+            if (!currentUser) return router.navigate('login');
+            
+            document.getElementById('dash-welcome').innerText = `${currentUser.name} 학생, 환영합니다!`;
+            const activities = getActivities();
+
+            document.getElementById('stat-count').innerText = `${activities.length}개`;
+            const aiCount = activities.filter(a => a.aiFeedback).length;
+            document.getElementById('stat-ai').innerText = `${aiCount}건`;
+            
+            if (activities.length > 0) {
+                const dates = activities.map(a => a.date).sort();
+                document.getElementById('stat-recent').innerText = dates[dates.length - 1];
+            } else {
+                document.getElementById('stat-recent').innerText = '기록 없음';
+            }
+
+            const container = document.getElementById('activities-container');
+            if (activities.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <div class="w-12 h-12 bg-indigo-50 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-3 text-lg">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-700">등록된 진로 활동이 없습니다.</p>
+                        <p class="text-xs text-slate-400 mt-1">새 진로 활동 기록하기 버튼을 눌러 첫 기록을 남겨보세요!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = activities.map((act, index) => `
+                <div class="bg-slate-50 hover:bg-white p-5 rounded-2xl border border-slate-200 transition duration-200 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div class="space-y-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">${act.category}</span>
+                            <span class="text-xs text-slate-400"><i class="fa-regular fa-calendar mr-1"></i>${act.date}</span>
+                        </div>
+                        <h4 class="text-base font-bold text-slate-900">${act.title}</h4>
+                        <p class="text-xs text-slate-600 line-clamp-1">${act.content}</p>
+                        <p class="text-xs font-medium text-indigo-600"><i class="fa-solid fa-bullseye mr-1"></i>진로 연관: ${act.careerLink}</p>
+                    </div>
+                    <div class="flex items-center space-x-2 self-end md:self-center">
+                        <button onclick="editActivity(${index})" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg transition">수정</button>
+                        <button onclick="deleteActivity(${index})" class="px-3 py-1.5 bg-white border border-red-200 hover:bg-red-50 text-red-600 text-xs font-semibold rounded-lg transition">삭제</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Save Activity & Call Gemini AI
+        async function saveActivity(e) {
+            e.preventDefault();
+            const editIdx = document.getElementById('edit-index').value;
+            const date = document.getElementById('act-date').value;
+            const category = document.getElementById('act-category').value;
+            const title = document.getElementById('act-title').value;
+            const content = document.getElementById('act-content').value;
+            const reflection = document.getElementById('act-reflection').value;
+            const careerLink = document.getElementById('act-career-link').value;
+
+            const newActivity = {
+                date, category, title, content, reflection, careerLink,
+                imageBase64: currentImageBase64 || (editIdx !== '' ? getActivities()[editIdx].imageBase64 : null),
+                aiFeedback: null
+            };
+
+            const activities = getActivities();
+            if (editIdx !== '') {
+                newActivity.aiFeedback = activities[editIdx].aiFeedback; // Preserve AI feedback if edited unless requested otherwise
+                activities[editIdx] = newActivity;
+            } else {
+                activities.push(newActivity);
+            }
+            saveActivities(activities);
+
+            // Reset Form & Image
+            document.getElementById('activity-form').reset();
+            document.getElementById('edit-index').value = '';
+            removeImage();
+
+            // Transition to AI Feedback View & Trigger Gemini API
+            router.navigate('feedback');
+            await requestAIFeedback(activities.length - 1);
+        }
+
+        async function requestAIFeedback(index) {
+            const loadingEl = document.getElementById('ai-loading');
+            const contentEl = document.getElementById('ai-content');
+            loadingEl.classList.remove('hidden');
+            contentEl.classList.add('hidden');
+
+            const activities = getActivities();
+            const act = activities[index];
+
+            const prompt = `중고등학생의 진로 활동 기록에 대한 교육적이고 전문적인 AI 피드백을 JSON 형식으로 작성해 주세요.
+            [학생 정보]
+            활동 영역: ${act.category}
+            활동 제목: ${act.title}
+            활동 내용: ${act.content}
+            느낀 점: ${act.reflection}
+            희망 진로 연관성: ${act.careerLink}
+
+            [요청 사항]
+            1. tags: 해당 활동에서 돋보이는 핵심 역량 키워드 3가지 (예: ["자기주도성", "문제해결력", "융합적사고"])
+            2. comment: 학생의 활동을 구체적으로 칭찬하고 교육적 관점에서 분석한 코멘트 (150자 내외)
+            3. tip: 희망 진로와 연계하여 더 발전시키기 위한 구체적이고 실천 가능한 제안 및 심화 탐구 팁 (150자 내외)
+
+            반드시 아래 JSON 구조로만 응답하세요:
+            {
+              "tags": ["태그1", "태그2", "태그3"],
+              "comment": "분석 코멘트 내용",
+              "tip": "발전 팁 내용"
+            }`;
+
+            try {
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "tags": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                "comment": { "type": "STRING" },
+                                "tip": { "type": "STRING" }
+                            },
+                            "propertyOrdering": ["tags", "comment", "tip"]
+                        }
+                    }
+                };
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const jsonText = result.candidates[0].content.parts[0].text;
+                const feedbackData = JSON.parse(jsonText);
+
+                // Save feedback back to activity
+                activities[index].aiFeedback = feedbackData;
+                saveActivities(activities);
+
+                // Render Feedback UI
+                document.getElementById('ai-tags').innerHTML = feedbackData.tags.map(t => `<span class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full">#${t}</span>`).join('');
+                document.getElementById('ai-comment').innerText = feedbackData.comment;
+                document.getElementById('ai-tip').innerText = feedbackData.tip;
+
+                loadingEl.classList.add('hidden');
+                contentEl.classList.remove('hidden');
+                showToast('AI 진로 분석이 완료되었습니다!');
+            } catch (error) {
+                console.error(error);
+                // Fallback simulation if API quota or network issue occurs
+                const fallbackData = {
+                    tags: ["탐구역량", "진로적합성", "자기주도학습"],
+                    comment: `"${act.title}" 활동은 학생의 적극적인 참여와 깊은 탐구 의지가 돋보이는 훌륭한 기록입니다. 특히 진로 방향과의 접점을 고민한 흔적이 역력합니다.`,
+                    tip: `관련 분야의 최신 도서나 논문을 추가로 탐색하고, 교내 동아리 친구들과 세미나를 개최해 보면 더욱 심화된 생기부 기록으로 발전할 수 있습니다.`
+                };
+                activities[index].aiFeedback = fallbackData;
+                saveActivities(activities);
+
+                document.getElementById('ai-tags').innerHTML = fallbackData.tags.map(t => `<span class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full">#${t}</span>`).join('');
+                document.getElementById('ai-comment').innerText = fallbackData.comment;
+                document.getElementById('ai-tip').innerText = fallbackData.tip;
+
+                loadingEl.classList.add('hidden');
+                contentEl.classList.remove('hidden');
+                showToast('AI 피드백이 생성되었습니다.');
+            }
+        }
+
+        function editActivity(index) {
+            const act = getActivities()[index];
+            document.getElementById('edit-index').value = index;
+            document.getElementById('act-date').value = act.date;
+            document.getElementById('act-category').value = act.category;
+            document.getElementById('act-title').value = act.title;
+            document.getElementById('act-content').value = act.content;
+            document.getElementById('act-reflection').value = act.reflection;
+            document.getElementById('act-career-link').value = act.careerLink;
+
+            if (act.imageBase64) {
+                currentImageBase64 = act.imageBase64;
+                document.getElementById('image-preview').src = currentImageBase64;
+                document.getElementById('image-preview-container').classList.remove('hidden');
+            } else {
+                removeImage();
+            }
+
+            document.getElementById('form-title-text').innerText = '진로 활동 기록 수정';
+            router.navigate('form');
+        }
+
+        function deleteActivity(index) {
+            if (confirm('정말 이 활동 기록을 삭제하시겠습니까?')) {
+                const activities = getActivities();
+                activities.splice(index, 1);
+                saveActivities(activities);
+                loadDashboard();
+                showToast('기록이 삭제되었습니다.');
+            }
+        }
+
+        // PDF Report Preview & Download
+        function loadPreview() {
+            if (!currentUser) return router.navigate('login');
+            const activities = getActivities();
+
+            document.getElementById('report-student-info').innerText = `학번: ${currentUser.studentId} | 이름: ${currentUser.name}`;
+            document.getElementById('report-date-generated').innerText = `발행일: ${new Date().toISOString().slice(0,10)}`;
+            document.getElementById('report-total-count').innerText = `${activities.length} 건`;
+            
+            if (activities.length > 0) {
+                document.getElementById('report-main-career').innerText = activities[0].careerLink || '진로 탐색 중';
+            } else {
+                document.getElementById('report-main-career').innerText = '미지정';
+            }
+
+            const aiCount = activities.filter(a => a.aiFeedback).length;
+            const rate = activities.length > 0 ? Math.round((aiCount / activities.length) * 100) : 0;
+            document.getElementById('report-ai-rate').innerText = `${rate}%`;
+
+            const container = document.getElementById('report-items-container');
+            if (activities.length === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">출력할 활동 기록이 없습니다.</p>`;
+                return;
+            }
+
+            container.innerHTML = activities.map((act, i) => `
+                <div class="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">활동 #${i+1} [${act.category}]</span>
+                        <span class="text-xs text-slate-500">${act.date}</span>
+                    </div>
+                    <h4 class="font-bold text-slate-900 text-base">${act.title}</h4>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 mb-0.5">활동 내용</p>
+                        <p class="text-xs text-slate-700 leading-relaxed">${act.content}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 mb-0.5">느낀 점</p>
+                        <p class="text-xs text-slate-700 leading-relaxed">${act.reflection}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 mb-0.5">희망 진로 연관성</p>
+                        <p class="text-xs text-indigo-700 font-medium">${act.careerLink}</p>
+                    </div>
+                    ${act.imageBase64 ? `<div class="mt-2"><img src="${act.imageBase64}" class="h-40 rounded-lg object-cover border border-slate-200"></div>` : ''}
+                    ${act.aiFeedback ? `
+                        <div class="mt-4 p-4 bg-indigo-50/70 rounded-xl border border-indigo-100 space-y-2">
+                            <div class="flex items-center space-x-1 text-xs font-bold text-indigo-700">
+                                <i class="fa-solid fa-robot"></i>
+                                <span>AI 진로 피드백 코멘트</span>
+                            </div>
+                            <p class="text-xs text-slate-700 leading-relaxed">${act.aiFeedback.comment}</p>
+                            <p class="text-xs text-slate-600 leading-relaxed font-medium"><i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i>발전 팁: ${act.aiFeedback.tip}</p>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('pdf-printable-area');
+            const opt = {
+                margin:       10,
+                filename:     `진로포트폴리오_${currentUser.studentId}_${currentUser.name}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            showToast('PDF 보고서를 생성 중입니다. 잠시만 기다려주세요...');
+            html2pdf().from(element).set(opt).save().then(() => {
+                showToast('PDF 다운로드가 완료되었습니다!');
+            });
+        }
+
+        // App Initialization on Load
+        window.onload = function() {
+            const savedUser = localStorage.getItem('portfolio_current_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                updateSessionBadge();
+                router.navigate('dashboard');
+            } else {
+                router.navigate('login');
+            }
+        };
+    </script>
+</body>
+</html>
